@@ -2,9 +2,15 @@
 
 # dependencies
 /node_modules
+/infra/node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
+
+# CDK
+/infra/cdk.out
+/infra/*.js
+/infra/*.d.ts
 
 # testing
 /coverage

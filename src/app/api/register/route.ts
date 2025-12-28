@@ -3,8 +3,21 @@ import { generateEmbedding } from '@/lib/embedding';
 import { saveDocument } from '@/lib/db';
 import type { RegisterRequest, RegisterResponse } from '@/types';
 
+const DATABASE_ENABLED = process.env.DATABASE_ENABLED !== 'false';
+
 export async function POST(request: NextRequest) {
   try {
+    // DB無効時は503エラーを返す
+    if (!DATABASE_ENABLED) {
+      return NextResponse.json<RegisterResponse>(
+        {
+          success: false,
+          error: 'データベースが無効です。デモモードでは文書登録はできません。',
+        },
+        { status: 503 }
+      );
+    }
+
     const body: RegisterRequest = await request.json();
     const { text } = body;
 

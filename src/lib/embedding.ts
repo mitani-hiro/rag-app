@@ -80,6 +80,8 @@ async function generateEmbeddingWithBedrock(text: string): Promise<number[]> {
 
 // 埋め込み生成（プロバイダーに応じて自動切り替え）
 export async function generateEmbedding(text: string): Promise<number[]> {
+  console.log("LLM_PROVIDER:", LLM_PROVIDER)
+
   if (LLM_PROVIDER === "bedrock") {
     return generateEmbeddingWithBedrock(text);
   }

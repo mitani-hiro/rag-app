@@ -2,7 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateEmbedding } from '@/lib/embedding';
 import { searchSimilarDocuments } from '@/lib/db';
 import { generateAnswer } from '@/lib/llm';
-import type { SearchRequest, SearchResponse } from '@/types';
+import type { SearchRequest, SearchResponse, SearchResult } from '@/types';
+
+const DATABASE_ENABLED = process.env.DATABASE_ENABLED !== 'false';
+
+// デモ用モックデータ
+const MOCK_DOCUMENTS: SearchResult[] = [
+  {
+    id: 1,
+    text: 'これはRAGアプリケーションのデモです。AWS App Runnerでホスティングされています。',
+    similarity: 0.95,
+  },
+  {
+    id: 2,
+    text: 'AWS Bedrockを使用してLLMによる回答生成と埋め込み生成を行っています。',
+    similarity: 0.88,
+  },
+];
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,13 +35,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 質問を埋め込みに変換
-    console.log('Generating embedding for query:', query);
-    const queryEmbedding = await generateEmbedding(query);
+    let similarDocs: SearchResult[];
 
-    // 類似文書を検索
-    console.log('Searching for similar documents...');
-    const similarDocs = await searchSimilarDocuments(queryEmbedding, topK);
+    if (DATABASE_ENABLED) {
+      // 質問を埋め込みに変換
+      console.log('Generating embedding for query:', query);
+      const queryEmbedding = await generateEmbedding(query);
+
+      // 類似文書を検索
+      console.log('Searching for similar documents...');
+      similarDocs = await searchSimilarDocuments(queryEmbedding, topK);
+    } else {
+      // DB無効時はモックデータを使用
+      console.log('Database disabled - using mock data');
+      similarDocs = MOCK_DOCUMENTS.slice(0, topK);
+    }
 
     if (similarDocs.length === 0) {
       return NextResponse.json<SearchResponse>({

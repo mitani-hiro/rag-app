@@ -166,38 +166,6 @@ WITH (lists = 100);
 npm run dev
 ```
 
-## トラブルシューティング
-
-### データベース接続エラー
-
-```bash
-# PostgreSQLコンテナのログを確認
-docker-compose logs postgres
-
-# コンテナを再起動
-docker-compose restart postgres
-```
-
-### OpenAI API エラー
-
-- `.env.local` の API キーが正しいか確認
-- OpenAI のアカウントに十分なクレジットがあるか確認
-
-### ポート競合エラー
-
-PostgreSQL のポート 5432 が既に使用されている場合：
-
-```yaml
-# docker-compose.yml を編集
-services:
-  postgres:
-    ports:
-      - "5433:5432"  # ← ホスト側のポートを変更
-
-# .env.local も変更
-DATABASE_URL=postgresql://raguser:ragpassword@localhost:5433/ragdb
-```
-
 ## 開発コマンド
 
 ```bash

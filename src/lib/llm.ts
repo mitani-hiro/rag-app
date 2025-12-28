@@ -131,6 +131,10 @@ ${query}
   const response = await client.send(command);
 
   const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+  console.log("[Bedrock Response]");
+  console.log("Response preview:", responseBody.content[0].text.substring(0, 100));
+
   return responseBody.content[0].text || "回答を生成できませんでした。";
 }
 

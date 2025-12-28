@@ -5,7 +5,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS documents (
   id SERIAL PRIMARY KEY,
   text TEXT NOT NULL,
-  embedding vector(1536) NOT NULL, -- OpenAI embeddings (ada-002) のベクトル次元数
+  embedding vector(1024) NOT NULL, -- AWS Bedrock Titan Embed Text v2 のベクトル次元数
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
