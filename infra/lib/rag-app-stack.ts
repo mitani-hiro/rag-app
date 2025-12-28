@@ -73,17 +73,17 @@ export class RagAppStack extends cdk.Stack {
         },
       },
       instanceConfiguration: {
-        cpu: "0.25 vCPU",
-        memory: "0.5 GB",
+        cpu: "1 vCPU",
+        memory: "2 GB",
         instanceRoleArn: instanceRole.roleArn,
       },
       healthCheckConfiguration: {
         protocol: "HTTP",
         path: "/",
-        interval: 20,
-        timeout: 5,
+        interval: 10,
+        timeout: 10,
         healthyThreshold: 1,
-        unhealthyThreshold: 5,
+        unhealthyThreshold: 10,
       },
       autoScalingConfigurationArn: autoScalingConfig.attrAutoScalingConfigurationArn,
     });
