@@ -1,5 +1,4 @@
 import * as cdk from "aws-cdk-lib";
-import * as ecr from "aws-cdk-lib/aws-ecr";
 import * as apprunner from "aws-cdk-lib/aws-apprunner";
 import * as iam from "aws-cdk-lib/aws-iam";
 import { Construct } from "constructs";
@@ -10,34 +9,14 @@ interface RagAppStackProps extends cdk.StackProps {
 
 export class RagAppStack extends cdk.Stack {
   public readonly appRunnerServiceUrl: cdk.CfnOutput;
-  public readonly ecrRepositoryUri: cdk.CfnOutput;
 
   constructor(scope: Construct, id: string, props: RagAppStackProps) {
     super(scope, id, props);
 
     const { environmentName } = props;
 
-    // ECR Repository for Docker images
-    const ecrRepository = new ecr.Repository(this, "RagAppRepository", {
-      repositoryName: `rag-app-${environmentName}`,
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
-      emptyOnDelete: true,
-      imageScanOnPush: true,
-      lifecycleRules: [
-        {
-          maxImageCount: 5,
-          description: "Keep only 5 images",
-        },
-      ],
-    });
-
-    // IAM Role for App Runner to access ECR
-    const accessRole = new iam.Role(this, "AppRunnerAccessRole", {
-      assumedBy: new iam.ServicePrincipal("build.apprunner.amazonaws.com"),
-      roleName: `rag-app-access-role-${environmentName}`,
-    });
-
-    ecrRepository.grantPull(accessRole);
+    // Using public ECR: public.ecr.aws/h7f0r1p2/rag-app
+    const publicEcrImageUri = "public.ecr.aws/h7f0r1p2/rag-app:latest";
 
     // IAM Role for App Runner instance (runtime)
     const instanceRole = new iam.Role(this, "AppRunnerInstanceRole", {
@@ -76,13 +55,10 @@ export class RagAppStack extends cdk.Stack {
     const appRunnerService = new apprunner.CfnService(this, "RagAppService", {
       serviceName: `rag-app-${environmentName}`,
       sourceConfiguration: {
-        authenticationConfiguration: {
-          accessRoleArn: accessRole.roleArn,
-        },
         autoDeploymentsEnabled: false,
         imageRepository: {
-          imageIdentifier: `${ecrRepository.repositoryUri}:latest`,
-          imageRepositoryType: "ECR",
+          imageIdentifier: publicEcrImageUri,
+          imageRepositoryType: "ECR_PUBLIC",
           imageConfiguration: {
             port: "3000",
             runtimeEnvironmentVariables: [
@@ -112,9 +88,6 @@ export class RagAppStack extends cdk.Stack {
       autoScalingConfigurationArn: autoScalingConfig.attrAutoScalingConfigurationArn,
     });
 
-    // Ensure App Runner waits for ECR repository
-    appRunnerService.node.addDependency(ecrRepository);
-
     // Outputs
     this.appRunnerServiceUrl = new cdk.CfnOutput(this, "AppRunnerServiceUrl", {
       value: `https://${appRunnerService.attrServiceUrl}`,
@@ -122,9 +95,9 @@ export class RagAppStack extends cdk.Stack {
       exportName: `RagAppServiceUrl-${environmentName}`,
     });
 
-    this.ecrRepositoryUri = new cdk.CfnOutput(this, "EcrRepositoryUri", {
-      value: ecrRepository.repositoryUri,
-      description: "ECR Repository URI",
+    new cdk.CfnOutput(this, "EcrRepositoryUri", {
+      value: publicEcrImageUri,
+      description: "Public ECR Repository URI",
       exportName: `RagAppEcrUri-${environmentName}`,
     });
   }
