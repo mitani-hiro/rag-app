@@ -78,11 +78,12 @@ export class RagAppStack extends cdk.Stack {
         instanceRoleArn: instanceRole.roleArn,
       },
       healthCheckConfiguration: {
-        protocol: "TCP",
-        interval: 5,
-        timeout: 2,
+        protocol: "HTTP",
+        path: "/api/health",
+        interval: 10,
+        timeout: 5,
         healthyThreshold: 1,
-        unhealthyThreshold: 3,
+        unhealthyThreshold: 5,
       },
       autoScalingConfigurationArn: autoScalingConfig.attrAutoScalingConfigurationArn,
     });
