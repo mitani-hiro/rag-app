@@ -53,11 +53,12 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: CDK Bootstrap (first time only)
-        if: github.event.inputs.action == 'deploy'
-        working-directory: infra
-        run: npx cdk bootstrap --context environmentName=${{ github.event.inputs.environment }}
-        continue-on-error: true
+      # CDK Bootstrap is not needed if already bootstrapped
+      # - name: CDK Bootstrap (first time only)
+      #   if: github.event.inputs.action == 'deploy'
+      #   working-directory: infra
+      #   run: npx cdk bootstrap --context environmentName=${{ github.event.inputs.environment }}
+      #   continue-on-error: true
 
       - name: CDK Diff
         if: github.event.inputs.action == 'diff'
