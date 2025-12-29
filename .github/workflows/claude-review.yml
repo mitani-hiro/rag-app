@@ -5,6 +5,8 @@ on:
     types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
+  pull_request_review_comment:
+    types: [created]
 
 permissions:
   contents: read
@@ -15,11 +17,12 @@ permissions:
 jobs:
   review:
     runs-on: ubuntu-latest
-    # PRイベント、または @claude メンションを含むコメントの場合に実行
     if: |
       github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude')) ||
+      (github.event_name == 'pull_request_review_comment' &&
        contains(github.event.comment.body, '@claude'))
     steps:
       - name: Checkout repository
@@ -28,37 +31,28 @@ jobs:
           fetch-depth: 0
 
       - name: Run Claude Code Review
-        uses: anthropics/claude-code-action@v1
+        id: claude
+        uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          prompt: |
-            このPRをレビューし、結果をPRコメントとして投稿してください。
+          allowed_tools: "Bash(gh:*),Bash(git diff*),Bash(git log*),Read,Glob,Grep"
+          direct_prompt: |
+            このPRの変更をレビューしてください。
 
-            ## 重要な指示
-
-            1. **最終結果のみをPRコメントとして投稿してください**
-               - `gh pr comment` コマンドを使用してPRにコメントを投稿
-               - 中間ステップや分析過程は投稿しない
-
-            2. **コードは該当箇所のみ引用**
-               - 問題のある行番号と該当コードスニペット（5行以内）のみ記載
-               - ファイル全体を表示しない
-
-            3. **簡潔にまとめる**
-               - 概要は3行以内
-               - 各指摘は1-2文で説明
+            ## 指示
+            - コードは該当箇所のみ引用（5行以内）
+            - 日本語で回答
+            - 簡潔にまとめる（概要は3行以内）
 
             ## レビュー観点
-
             - 機能の正しさ（RAG機能との整合性）
-            - パフォーマンス（N^2アルゴリズム等の問題）
-            - セキュリティ（入力バリデーション、認証）
+            - パフォーマンス（O(N²)等の問題）
+            - セキュリティ（入力バリデーション）
             - デプロイ影響（環境変数、Docker）
 
-            ## 出力フォーマット（これをそのままPRコメントに投稿）
+            ## 出力フォーマット
 
-            ```markdown
-            ## コードレビュー結果
+            ## 🤖 コードレビュー結果
 
             ### 概要
             [1-3行で変更内容を説明]
@@ -78,42 +72,34 @@ jobs:
             ---
 
             <details>
-            <summary>機能検証</summary>
+            <summary>🔍 機能検証</summary>
 
-            - [状態: OK/NG]
+            - 状態: [OK/NG]
             - [問題があれば簡潔に記載]
 
             </details>
 
             <details>
-            <summary>パフォーマンス</summary>
+            <summary>⚡ パフォーマンス</summary>
 
-            - [状態: OK/NG]
+            - 状態: [OK/NG]
             - [問題があれば簡潔に記載]
 
             </details>
 
             <details>
-            <summary>セキュリティ</summary>
+            <summary>🔒 セキュリティ</summary>
 
-            - [状態: OK/NG]
+            - 状態: [OK/NG]
             - [問題があれば簡潔に記載]
 
             </details>
 
             <details>
-            <summary>デプロイ影響</summary>
+            <summary>🚀 デプロイ影響</summary>
 
-            - [状態: OK/NG]
+            - 状態: [OK/NG]
             - [問題があれば簡潔に記載]
 
             </details>
-            ```
-
-            ## 実行手順
-
-            1. `git diff` で変更内容を確認
-            2. 問題点を特定
-            3. 上記フォーマットでレビュー結果を作成
-            4. `gh pr comment ${{ github.event.pull_request.number }} --body "..."` でPRにコメント投稿
-          claude_args: "--max-turns 15"
+          claude_args: "--max-turns 10"
