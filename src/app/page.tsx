@@ -1,4 +1,5 @@
 import { SearchForm } from '@/components/features/search/SearchForm';
+import { DocumentList } from '@/components/features/documents/DocumentList';
 
 export default function HomePage() {
   return (
@@ -9,7 +10,14 @@ export default function HomePage() {
           登録されたテキストから関連情報を検索してAIが回答します
         </p>
       </div>
-      <SearchForm />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div>
+          <SearchForm />
+        </div>
+        <div>
+          <DocumentList />
+        </div>
+      </div>
     </div>
   );
 }
