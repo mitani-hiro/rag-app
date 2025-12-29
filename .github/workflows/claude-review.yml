@@ -1,0 +1,101 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    # PRイベント、または @claude メンションを含むコメントの場合に実行
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '@claude'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            このPRを包括的にレビューしてください。以下の専門家エージェントを使って各観点から分析を行ってください:
+
+            ## 使用する専門家
+
+            1. **feature-specialist**: RAG機能（登録・検索・回答生成）の実装が正しいか検証
+            2. **deployment-specialist**: App Runner/Dockerへのデプロイ影響を評価
+            3. **database-specialist**: pgvectorスキーマ・マイグレーション・クエリを検証
+            4. **security-reviewer**: セキュリティ脆弱性を特定
+
+            ## レビュー手順
+
+            1. 変更されたファイルを確認
+            2. 各専門家に該当する変更がある場合、その専門家を呼び出して分析を依頼
+            3. 全専門家の結果を統合
+
+            ## 出力フォーマット
+
+            以下の形式でレビューコメントを作成してください:
+
+            ### 概要
+            [PRの変更内容の簡潔な説明]
+
+            ### ブロッカー（マージ前に必須の修正）
+            - [ ] [問題1: ファイル名:行番号 - 説明]
+            - [ ] [問題2: ファイル名:行番号 - 説明]
+            （なければ「なし」と記載）
+
+            ### 警告（推奨される修正）
+            - [ ] [警告1: 説明]
+            - [ ] [警告2: 説明]
+            （なければ「なし」と記載）
+
+            ### 提案（改善案）
+            - [提案1]
+            - [提案2]
+            （なければ「なし」と記載）
+
+            ### 専門家レビュー詳細
+
+            <details>
+            <summary>機能検証 (feature-specialist)</summary>
+
+            [feature-specialist の詳細結果]
+
+            </details>
+
+            <details>
+            <summary>デプロイ影響 (deployment-specialist)</summary>
+
+            [deployment-specialist の詳細結果]
+
+            </details>
+
+            <details>
+            <summary>データベース (database-specialist)</summary>
+
+            [database-specialist の詳細結果]
+
+            </details>
+
+            <details>
+            <summary>セキュリティ (security-reviewer)</summary>
+
+            [security-reviewer の詳細結果]
+
+            </details>
+          claude_args: "--max-turns 25"

@@ -105,3 +105,50 @@ pgvector拡張を使用し、HNSWインデックス（`vector_cosine_ops`）で�
 ### パスエイリアス
 
 TypeScriptは `@/*` エイリアスを `./src/*` にマッピング。インポートをクリーンに保つため使用。
+
+## デプロイアーキテクチャ
+
+### 本番環境
+
+- **コンピューティング**: AWS App Runner
+- **コンテナレジストリ**: Amazon ECR Public (`public.ecr.aws/h7f0r1p2/rag-app`)
+- **リージョン**: us-east-1
+- **ヘルスチェック**: GET `/api/health` (200 OK)
+- **環境**: dev / prod（workflow_dispatch で切り替え）
+
+### デプロイフロー
+
+1. `main` ブランチへのプッシュで自動デプロイ（dev環境）
+2. Docker イメージをビルドし ECR Public にプッシュ
+3. App Runner サービスを更新（ローリングデプロイ）
+
+## GitHub Actions コードレビュー基準
+
+### 機能要件チェック
+
+- [ ] `generateEmbedding()` が登録・検索の両方で呼ばれている
+- [ ] OpenAI / Bedrock 両方のコードパスが存在する
+- [ ] `searchSimilarDocuments()` が pgvector `<=>` オペレータを使用
+- [ ] 検索結果にソースドキュメントの帰属が含まれる
+- [ ] パフォーマンス: 検索API は 2秒以内に応答
+
+### デプロイ影響チェック
+
+- [ ] Dockerfile の変更がヘルスチェック (`/api/health`) に影響しない
+- [ ] 環境変数 (`LLM_PROVIDER`, `DATABASE_URL`) の設定が適切
+- [ ] ポートマッピング (3000) が維持されている
+- [ ] App Runner のリソース制限に影響する変更がない
+
+### データベーススキーマチェック
+
+- [ ] ベクトル次元数の整合性 (OpenAI: 1536, Bedrock: 1024)
+- [ ] スキーマ変更時はマイグレーションスクリプトが含まれる
+- [ ] HNSW インデックス (`vector_cosine_ops`) が維持されている
+- [ ] `scripts/init-db.sql` との整合性
+
+### セキュリティチェック
+
+- [ ] API キーがコードにハードコードされていない
+- [ ] ユーザー入力に対する入力バリデーションが存在
+- [ ] SQL クエリでパラメータ化クエリを使用（インジェクション防止）
+- [ ] LLM プロンプトインジェクションのリスク評価
