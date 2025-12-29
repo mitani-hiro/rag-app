@@ -32,70 +32,88 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            このPRを包括的にレビューしてください。以下の専門家エージェントを使って各観点から分析を行ってください:
+            このPRをレビューし、結果をPRコメントとして投稿してください。
 
-            ## 使用する専門家
+            ## 重要な指示
 
-            1. **feature-specialist**: RAG機能（登録・検索・回答生成）の実装が正しいか検証
-            2. **deployment-specialist**: App Runner/Dockerへのデプロイ影響を評価
-            3. **database-specialist**: pgvectorスキーマ・マイグレーション・クエリを検証
-            4. **security-reviewer**: セキュリティ脆弱性を特定
+            1. **最終結果のみをPRコメントとして投稿してください**
+               - `gh pr comment` コマンドを使用してPRにコメントを投稿
+               - 中間ステップや分析過程は投稿しない
 
-            ## レビュー手順
+            2. **コードは該当箇所のみ引用**
+               - 問題のある行番号と該当コードスニペット（5行以内）のみ記載
+               - ファイル全体を表示しない
 
-            1. 変更されたファイルを確認
-            2. 各専門家に該当する変更がある場合、その専門家を呼び出して分析を依頼
-            3. 全専門家の結果を統合
+            3. **簡潔にまとめる**
+               - 概要は3行以内
+               - 各指摘は1-2文で説明
 
-            ## 出力フォーマット
+            ## レビュー観点
 
-            以下の形式でレビューコメントを作成してください:
+            - 機能の正しさ（RAG機能との整合性）
+            - パフォーマンス（N^2アルゴリズム等の問題）
+            - セキュリティ（入力バリデーション、認証）
+            - デプロイ影響（環境変数、Docker）
+
+            ## 出力フォーマット（これをそのままPRコメントに投稿）
+
+            ```markdown
+            ## コードレビュー結果
 
             ### 概要
-            [PRの変更内容の簡潔な説明]
+            [1-3行で変更内容を説明]
 
-            ### ブロッカー（マージ前に必須の修正）
-            - [ ] [問題1: ファイル名:行番号 - 説明]
-            - [ ] [問題2: ファイル名:行番号 - 説明]
-            （なければ「なし」と記載）
+            ### ブロッカー（マージ前に必須）
+            - [ ] `ファイル名:行番号` - [問題の説明]
+            （なければ「なし」）
 
-            ### 警告（推奨される修正）
-            - [ ] [警告1: 説明]
-            - [ ] [警告2: 説明]
-            （なければ「なし」と記載）
+            ### 警告（推奨）
+            - [ ] [説明]
+            （なければ「なし」）
 
-            ### 提案（改善案）
-            - [提案1]
-            - [提案2]
-            （なければ「なし」と記載）
+            ### 提案
+            - [改善案]
+            （なければ「なし」）
 
-            ### 専門家レビュー詳細
+            ---
 
             <details>
-            <summary>機能検証 (feature-specialist)</summary>
+            <summary>機能検証</summary>
 
-            [feature-specialist の詳細結果]
+            - [状態: OK/NG]
+            - [問題があれば簡潔に記載]
 
             </details>
 
             <details>
-            <summary>デプロイ影響 (deployment-specialist)</summary>
+            <summary>パフォーマンス</summary>
 
-            [deployment-specialist の詳細結果]
-
-            </details>
-
-            <details>
-            <summary>データベース (database-specialist)</summary>
-
-            [database-specialist の詳細結果]
+            - [状態: OK/NG]
+            - [問題があれば簡潔に記載]
 
             </details>
 
             <details>
-            <summary>セキュリティ (security-reviewer)</summary>
+            <summary>セキュリティ</summary>
 
-            [security-reviewer の詳細結果]
+            - [状態: OK/NG]
+            - [問題があれば簡潔に記載]
 
             </details>
-          claude_args: "--max-turns 25"
+
+            <details>
+            <summary>デプロイ影響</summary>
+
+            - [状態: OK/NG]
+            - [問題があれば簡潔に記載]
+
+            </details>
+            ```
+
+            ## 実行手順
+
+            1. `git diff` で変更内容を確認
+            2. 問題点を特定
+            3. 上記フォーマットでレビュー結果を作成
+            4. `gh pr comment ${{ github.event.pull_request.number }} --body "..."` でPRにコメント投稿
+          claude_args: "--max-turns 15"
