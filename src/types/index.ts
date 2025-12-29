@@ -32,3 +32,25 @@ export interface SearchResponse {
   sources?: SearchResult[];
   error?: string;
 }
+
+// ドキュメント一覧用の型
+export interface DocumentSummary {
+  id: number;
+  text: string;
+  preview: string;
+  created_at: Date;
+}
+
+export interface DocumentCluster {
+  clusterId: number;
+  label: string;
+  documents: DocumentSummary[];
+}
+
+export interface DocumentsResponse {
+  success: boolean;
+  total?: number;
+  documents?: DocumentSummary[];
+  clusters?: DocumentCluster[];
+  error?: string;
+}
