@@ -1,6 +1,6 @@
 import { Pool, QueryResult } from "pg";
 import pgvector from "pgvector/pg";
-import type { Document, SearchResult } from "@/types";
+import type { Document, SearchResult, DocumentSummary, DocumentCluster } from "@/types";
 
 // データベース接続プールを作成
 const pool = new Pool({
@@ -102,6 +102,104 @@ export async function getAllDocuments(): Promise<Document[]> {
       "SELECT id, text, created_at FROM documents ORDER BY created_at DESC"
     );
     return result.rows;
+  } finally {
+    client.release();
+  }
+}
+
+// ドキュメント一覧を取得（プレビュー付き）
+export async function getDocumentSummaries(limit: number = 100, offset: number = 0): Promise<{ documents: DocumentSummary[]; total: number }> {
+  const client = await pool.connect();
+  try {
+    // 総件数を取得
+    const countResult = await client.query("SELECT COUNT(*) FROM documents");
+    const total = parseInt(countResult.rows[0].count, 10);
+
+    // ドキュメント一覧を取得
+    const result: QueryResult = await client.query(
+      `SELECT id, text, created_at
+       FROM documents
+       ORDER BY created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    const documents: DocumentSummary[] = result.rows.map((row) => ({
+      id: row.id,
+      text: row.text,
+      preview: row.text.substring(0, 100) + (row.text.length > 100 ? "..." : ""),
+      created_at: row.created_at,
+    }));
+
+    return { documents, total };
+  } finally {
+    client.release();
+  }
+}
+
+// ドキュメントを類似度でクラスタリング
+export async function clusterDocuments(similarityThreshold: number = 0.7): Promise<DocumentCluster[]> {
+  const client = await pool.connect();
+  try {
+    await pgvector.registerType(client);
+
+    // 全ドキュメントの埋め込みを取得
+    const result: QueryResult = await client.query(
+      "SELECT id, text, embedding, created_at FROM documents ORDER BY created_at DESC"
+    );
+
+    if (result.rows.length === 0) {
+      return [];
+    }
+
+    const documents = result.rows;
+    const clusters: DocumentCluster[] = [];
+    const assigned = new Set<number>();
+
+    // 簡易クラスタリング: 各ドキュメントを順に見て、類似度が高いものをグループ化
+    for (const doc of documents) {
+      if (assigned.has(doc.id)) continue;
+
+      const cluster: DocumentCluster = {
+        clusterId: clusters.length + 1,
+        label: doc.text.substring(0, 30) + "...",
+        documents: [
+          {
+            id: doc.id,
+            text: doc.text,
+            preview: doc.text.substring(0, 100) + (doc.text.length > 100 ? "..." : ""),
+            created_at: doc.created_at,
+          },
+        ],
+      };
+      assigned.add(doc.id);
+
+      // 他のドキュメントと類似度を計算
+      for (const other of documents) {
+        if (assigned.has(other.id)) continue;
+
+        // コサイン類似度を計算（pgvectorの<=>はコサイン距離）
+        const similarityQuery = await client.query(
+          "SELECT 1 - ($1::vector <=> $2::vector) AS similarity",
+          [pgvector.toSql(doc.embedding), pgvector.toSql(other.embedding)]
+        );
+        const similarity = parseFloat(similarityQuery.rows[0].similarity);
+
+        if (similarity >= similarityThreshold) {
+          cluster.documents.push({
+            id: other.id,
+            text: other.text,
+            preview: other.text.substring(0, 100) + (other.text.length > 100 ? "..." : ""),
+            created_at: other.created_at,
+          });
+          assigned.add(other.id);
+        }
+      }
+
+      clusters.push(cluster);
+    }
+
+    return clusters;
   } finally {
     client.release();
   }
