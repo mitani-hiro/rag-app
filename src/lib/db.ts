@@ -45,10 +45,14 @@ export async function saveDocument(
   }
 }
 
+// 検索結果の最小類似度閾値
+const MIN_SIMILARITY_THRESHOLD = 0.3;
+
 // ベクトル類似検索
 export async function searchSimilarDocuments(
   queryEmbedding: number[],
-  topK: number = 5
+  topK: number = 5,
+  minSimilarity: number = MIN_SIMILARITY_THRESHOLD
 ): Promise<SearchResult[]> {
   const client = await pool.connect();
   try {
@@ -56,6 +60,7 @@ export async function searchSimilarDocuments(
     await pgvector.registerType(client);
 
     console.log("Searching with vector dimension:", queryEmbedding.length);
+    //console.log("Min similarity threshold:", minSimilarity);
 
     const query = `
       SELECT
@@ -63,6 +68,7 @@ export async function searchSimilarDocuments(
         text,
         1 - (embedding <=> $1) AS similarity
       FROM documents
+      WHERE 1 - (embedding <=> $1) >= $3
       ORDER BY embedding <=> $1
       LIMIT $2
     `;
@@ -70,6 +76,7 @@ export async function searchSimilarDocuments(
     const result: QueryResult = await client.query(query, [
       pgvector.toSql(queryEmbedding),
       topK,
+      minSimilarity,
     ]);
 
     console.log("Search results count:", result.rows.length);
