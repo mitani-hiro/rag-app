@@ -22,73 +22,39 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Run Feature Review
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
           prompt: |
-            # RAG機能検証
+            PRの変更をRAG機能の観点から簡潔にレビューしてください。
 
-            あなたはRAG（Retrieval-Augmented Generation）アプリケーションの機能実装専門家です。
-            このPRの変更をRAG機能の観点からレビューしてください。
+            【検証項目】
+            1. 登録フロー: generateEmbedding() → saveDocument()
+            2. 検索フロー: generateEmbedding() → searchSimilarDocuments()
+            3. 回答生成: generateAnswer() へのコンテキスト渡し
+            4. プロバイダー: OpenAI/Bedrock 両コードパス
 
-            ## 専門知識
-            - Next.js App Router API Routes
-            - ベクトル埋め込み生成（OpenAI / AWS Bedrock）
-            - pgvectorによるコサイン類似検索
-            - LLMを使用した回答生成
-
-            ## 検証項目
-
-            ### 1. 登録フロー
-            - `generateEmbedding()` が呼ばれているか
-            - `saveDocument()` でテキスト＋埋め込みが保存されているか
-            - エラーハンドリングが適切か
-
-            ### 2. 検索フロー
-            - クエリの `generateEmbedding()` が実行されているか
-            - `searchSimilarDocuments()` が pgvector `<=>` オペレータを使用しているか
-            - 取得件数（K値）が適切か
-
-            ### 3. 回答生成
-            - `generateAnswer()` にコンテキスト文書が渡されているか
-            - プロンプト構成が適切か
-            - ソースドキュメントの帰属が返却されているか
-
-            ### 4. プロバイダー抽象化
-            - OpenAI / Bedrock 両方のコードパスが存在するか
-            - `LLM_PROVIDER` 環境変数で適切にルーティングされるか
-
-            ## 出力フォーマット
+            【出力】日本語で以下のフォーマットのみ出力してください：
 
             ## 🔧 機能検証結果
 
-            ### 登録機能
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
-
-            ### 検索機能
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
-
-            ### 回答生成
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
-
-            ### プロバイダー抽象化
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
+            | 項目 | 状態 | 詳細 |
+            |------|------|------|
+            | 登録機能 | OK/NG/該当なし | 一言で |
+            | 検索機能 | OK/NG/該当なし | 一言で |
+            | 回答生成 | OK/NG/該当なし | 一言で |
+            | プロバイダー | OK/NG/該当なし | 一言で |
 
             ### 問題点
-            - [問題1: ファイル:行番号 - 説明]
             （なければ「なし」）
 
             ### 推奨事項
-            - [推奨1]
             （なければ「なし」）
-          claude_args: "--max-turns 10"
+          claude_args: "--max-turns 20 --allowedTools Read,Grep,Glob"
 
   database-review:
     runs-on: ubuntu-latest
@@ -97,93 +63,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Run Database Review
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          use_sticky_comment: true
           prompt: |
-            # データベース検証
+            PRの変更をデータベース観点から簡潔にレビューしてください。
 
-            あなたはPostgreSQLとpgvectorベクトル検索の専門家です。
-            このPRの変更をデータベースの観点からレビューしてください。
+            【スキーマ情報】
+            - OpenAI: vector(1536), Bedrock: vector(1024)
+            - HNSW インデックス使用
 
-            ## 専門知識
-            - PostgreSQL スキーマ設計
-            - pgvector 拡張（ベクトルデータ型、コサイン類似検索）
-            - HNSW インデックス最適化
-            - マイグレーション戦略
+            【検証項目】
+            1. スキーマ: ベクトル次元数の整合性
+            2. クエリ: <=> オペレータ、パラメータ化クエリ
+            3. パフォーマンス: インデックス活用
+            4. セキュリティ: SQLインジェクション対策
 
-            ## データベース構成
-
-            ```sql
-            CREATE TABLE documents (
-              id SERIAL PRIMARY KEY,
-              text TEXT NOT NULL,
-              embedding vector(1536) NOT NULL,  -- OpenAI: 1536, Bedrock: 1024
-              created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE INDEX documents_embedding_idx ON documents
-            USING hnsw (embedding vector_cosine_ops);
-            ```
-
-            ## 検証項目
-
-            ### 1. スキーマ整合性
-            - `vector()` の次元数が `LLM_PROVIDER` と一致するか
-            - プライマリキー、NOT NULL 制約が適切か
-            - インデックス定義が維持されているか
-
-            ### 2. マイグレーション
-            - スキーマ変更時にマイグレーションスクリプトが含まれているか
-            - 既存データへの影響が考慮されているか
-
-            ### 3. ベクトル検索クエリ
-            - `<=>` オペレータ（コサイン距離）が使用されているか
-            - `ORDER BY embedding <=> $1` の形式が正しいか
-            - LIMIT 句で適切な件数が指定されているか
-
-            ### 4. パフォーマンス
-            - HNSW インデックスが活用されているか
-            - コネクションプーリングが適切か
-
-            ### 5. SQLインジェクション
-            - パラメータ化クエリが使用されているか
-            - ユーザー入力が直接SQLに埋め込まれていないか
-
-            ## 出力フォーマット
+            【出力】日本語で以下のフォーマットのみ出力してください：
 
             ## 🗄️ データベース検証結果
 
-            ### スキーマ整合性
-            - 状態: [OK/NG/該当なし]
-            - ベクトル次元: [1536/1024/確認不可]
-            - 詳細: [具体的な確認結果]
-
-            ### マイグレーション
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
-
-            ### ベクトル検索クエリ
-            - 状態: [OK/NG/該当なし]
-            - 詳細: [具体的な確認結果]
-
-            ### パフォーマンス影響
-            - レベル: [低/中/高]
-            - 詳細: [具体的な確認結果]
+            | 項目 | 状態 | 詳細 |
+            |------|------|------|
+            | スキーマ整合性 | OK/NG/該当なし | 一言で |
+            | クエリ | OK/NG/該当なし | 一言で |
+            | パフォーマンス | OK/NG/該当なし | 一言で |
+            | セキュリティ | OK/NG/該当なし | 一言で |
 
             ### 問題点
-            - [問題1: ファイル:行番号 - 説明]
             （なければ「なし」）
 
             ### 推奨事項
-            - [推奨1]
             （なければ「なし」）
-          claude_args: "--max-turns 10"
+          claude_args: "--max-turns 20 --allowedTools Read,Grep,Glob"
 
-  # @claude メンション応答
   comment-response:
     runs-on: ubuntu-latest
     if: |
